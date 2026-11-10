@@ -1,0 +1,36 @@
+@{
+    var title = ViewData["Title"] as string ?? "Conta";
+}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@title - DotNetAuth</title>
+    <link rel="stylesheet" href="~/css/account.css" asp-append-version="true" />
+</head>
+<body class="account-page">
+    <main class="account-shell">
+        <section class="account-brand" aria-labelledby="account-brand-title">
+            <a class="account-brand__logo" href="/" aria-label="DotNetAuth - início">
+                <span class="account-brand__mark" aria-hidden="true">D</span>
+                <span>DotNetAuth</span>
+            </a>
+
+            <div class="account-brand__content">
+                <p class="account-eyebrow">Acesso seguro</p>
+                <h1 id="account-brand-title">Sua conta, seu acesso.</h1>
+                <p>Uma experiência simples para autenticar e continuar com segurança.</p>
+            </div>
+
+            <p class="account-brand__footer">Autenticação segura para suas aplicações.</p>
+        </section>
+
+        <section class="account-content" aria-label="Autenticação">
+            <div class="account-card">
+                @RenderBody()
+            </div>
+        </section>
+    </main>
+</body>
+</html>

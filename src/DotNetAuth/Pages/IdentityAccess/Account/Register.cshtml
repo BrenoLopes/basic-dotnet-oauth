@@ -1,0 +1,81 @@
+@page "/account/register"
+@model DotNetAuth.Pages.IdentityAccess.Account.RegisterModel
+@{
+    ViewData["Title"] = "Criar conta";
+    var hasErrors = ViewData.ModelState.ErrorCount > 0;
+}
+
+<header class="account-card__header">
+    <p class="account-eyebrow">Comece agora</p>
+    <h2>Crie sua conta</h2>
+    <p>Preencha seus dados para começar com segurança.</p>
+</header>
+
+@if (!string.IsNullOrWhiteSpace(Model.SuccessMessage))
+{
+    <div class="status-message" role="status">
+        <p>@Model.SuccessMessage</p>
+        <a asp-page="/IdentityAccess/Account/Login"
+           asp-route-returnUrl="@Model.LocalReturnUrl">Ir para login</a>
+    </div>
+}
+
+@if (hasErrors)
+{
+    <div class="validation-summary" asp-validation-summary="ModelOnly" role="alert" tabindex="-1"></div>
+}
+
+@if (string.IsNullOrWhiteSpace(Model.SuccessMessage))
+{
+    <form method="post" class="account-form">
+        <input type="hidden" asp-for="ReturnUrl" />
+
+        <div class="form-field">
+            <label class="form-label" asp-for="Input.DisplayName">Nome</label>
+            <input class="form-input"
+                   asp-for="Input.DisplayName"
+                   autocomplete="name"
+                   aria-describedby="Input_DisplayName_error"
+                   aria-invalid="@(ModelState["Input.DisplayName"]?.Errors.Count > 0 ? "true" : "false")" />
+            <span class="field-validation"
+                  asp-validation-for="Input.DisplayName"
+                  id="Input_DisplayName_error"></span>
+        </div>
+
+        <div class="form-field">
+            <label class="form-label" asp-for="Input.Email">E-mail</label>
+            <input class="form-input"
+                   asp-for="Input.Email"
+                   autocomplete="email"
+                   aria-describedby="Input_Email_error"
+                   aria-invalid="@(ModelState["Input.Email"]?.Errors.Count > 0 ? "true" : "false")" />
+            <span class="field-validation"
+                  asp-validation-for="Input.Email"
+                  id="Input_Email_error"></span>
+        </div>
+
+        <div class="form-field">
+            <label class="form-label" asp-for="Input.Password">Senha</label>
+            <input class="form-input"
+                   asp-for="Input.Password"
+                   type="password"
+                   autocomplete="new-password"
+                   aria-describedby="Input_Password_hint Input_Password_error"
+                   aria-invalid="@(ModelState["Input.Password"]?.Errors.Count > 0 ? "true" : "false")" />
+            <p class="form-hint" id="Input_Password_hint">
+                Use pelo menos 8 caracteres, incluindo uma letra maiúscula e uma letra minúscula.
+            </p>
+            <span class="field-validation"
+                  asp-validation-for="Input.Password"
+                  id="Input_Password_error"></span>
+        </div>
+
+        <button class="account-button" type="submit">Criar conta</button>
+    </form>
+}
+
+<p class="account-switch">
+    Já possui uma conta?
+    <a asp-page="/IdentityAccess/Account/Login"
+       asp-route-returnUrl="@Model.LocalReturnUrl">Entrar</a>
+</p>

@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DotNetAuth/DotNetAuth.csproj" />
+    <Project Path="src/DotNetAuth.Application/DotNetAuth.Application.csproj" />
+    <Project Path="src/DotNetAuth.Domain/DotNetAuth.Domain.csproj" />
+    <Project Path="src/DotNetAuth.Infrastructure/DotNetAuth.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DotNetAuth.IntegrationTests/DotNetAuth.IntegrationTests.csproj" />
+    <Project Path="tests/DotNetAuth.UnitTests/DotNetAuth.UnitTests.csproj" />
+  </Folder>
+</Solution>
