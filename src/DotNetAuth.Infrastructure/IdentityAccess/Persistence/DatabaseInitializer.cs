@@ -8,11 +8,24 @@ namespace DotNetAuth.Infrastructure.IdentityAccess.Persistence;
 
 public static class DatabaseInitializer
 {
-    public static async Task InitializeAsync(
-        IServiceProvider services,
-        IConfiguration configuration)
+    public static async Task InitializeAsync(IServiceProvider services, IConfiguration configuration)
     {
-        const int maxAttempts = 10;
+        var maxAttempts = configuration.GetValue<int?>(
+            "Database:Initialization:MaxAttempts") ?? 10;
+        var retryDelaySeconds = configuration.GetValue<int?>(
+            "Database:Initialization:RetryDelaySeconds") ?? 3;
+        if (maxAttempts <= 0)
+        {
+            throw new InvalidOperationException(
+                "Database:Initialization:MaxAttempts must be greater than zero.");
+        }
+
+        if (retryDelaySeconds <= 0)
+        {
+            throw new InvalidOperationException(
+                "Database:Initialization:RetryDelaySeconds must be greater than zero.");
+        }
+
         var logger = services.GetRequiredService<ILoggerFactory>()
             .CreateLogger("DatabaseInitialization");
 
@@ -21,9 +34,12 @@ public static class DatabaseInitializer
             try
             {
                 using var scope = services.CreateScope();
+
                 var database = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
                 await database.Database.MigrateAsync();
                 await OAuthSeeder.SeedAsync(scope.ServiceProvider, configuration);
+
                 return;
             }
             catch (Exception exception) when (attempt < maxAttempts)
@@ -32,13 +48,17 @@ public static class DatabaseInitializer
                     exception,
                     "Database initialization attempt {Attempt} of {MaxAttempts} failed.",
                     attempt,
-                    maxAttempts);
-                await Task.Delay(TimeSpan.FromSeconds(3));
+                    maxAttempts
+                );
+
+                await Task.Delay(TimeSpan.FromSeconds(retryDelaySeconds));
             }
         }
 
         using var finalScope = services.CreateScope();
+
         var finalDatabase = finalScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
         await finalDatabase.Database.MigrateAsync();
         await OAuthSeeder.SeedAsync(finalScope.ServiceProvider, configuration);
     }

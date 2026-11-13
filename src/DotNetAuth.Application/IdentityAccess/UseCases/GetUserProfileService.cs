@@ -1,6 +1,8 @@
 namespace DotNetAuth.Application.IdentityAccess;
 
-public sealed class GetUserProfileService(IUserProfileCache cache)
+public sealed class GetUserProfileService(
+    IUserProfileCache cache,
+    TimeSpan profileCacheExpiration)
 {
     public async Task<UserProfile> ExecuteAsync(
         AuthenticatedIdentity identity,
@@ -19,7 +21,7 @@ public sealed class GetUserProfileService(IUserProfileCache cache)
 
         await cache.SetAsync(
             profile,
-            TimeSpan.FromMinutes(5),
+            profileCacheExpiration,
             cancellationToken);
 
         return profile;

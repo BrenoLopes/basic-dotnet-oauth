@@ -8,19 +8,31 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 
-builder.Services.AddInfrastructure(
-    builder.Configuration,
-    builder.Environment);
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 
 builder.Services.AddHttpContextAccessor();
+
 builder.Services.AddSingleton<IConfirmationLinkBuilder, AspNetConfirmationLinkBuilder>();
+
 builder.Services.AddScoped<RegisterUserService>();
 builder.Services.AddScoped<ConfirmUserEmailService>();
 builder.Services.AddScoped<LoginUserService>();
 builder.Services.AddScoped<LogoutUserService>();
 builder.Services.AddScoped<GetCurrentUserService>();
 builder.Services.AddScoped<AuthorizeUserService>();
-builder.Services.AddScoped<GetUserProfileService>();
+var profileCacheExpirationMinutes = builder.Configuration.GetValue<int?>(
+    "Cache:ProfileExpirationMinutes") ?? 5;
+if (profileCacheExpirationMinutes <= 0)
+{
+    throw new InvalidOperationException(
+        "Cache:ProfileExpirationMinutes must be greater than zero.");
+}
+
+builder.Services.AddScoped<GetUserProfileService>(services =>
+    new GetUserProfileService(
+        services.GetRequiredService<IUserProfileCache>(),
+        TimeSpan.FromMinutes(profileCacheExpirationMinutes)));
+
 builder.Services.AddControllers();
 builder.Services.AddRazorPages();
 builder.Services.AddProblemDetails();
@@ -36,10 +48,7 @@ app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-if (app.Configuration.GetValue<bool>("Web:Authentication:Registration"))
-{
-    app.MapRazorPages();
-}
+app.MapRazorPages();
 
 if (app.Configuration.GetValue<bool>("Database:ApplyMigrations"))
 {

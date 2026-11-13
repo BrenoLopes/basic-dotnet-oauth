@@ -56,8 +56,11 @@
     <button class="account-button" type="submit">Entrar</button>
 </form>
 
-<p class="account-switch">
-    Ainda não tem uma conta?
-    <a asp-page="/IdentityAccess/Account/Register"
-       asp-route-returnUrl="@Model.LocalReturnUrl">Criar conta</a>
-</p>
+@if (Model.IsRegistrationEnabled)
+{
+    <p class="account-switch">
+        Ainda não tem uma conta?
+        <a asp-page="/IdentityAccess/Account/Register"
+           asp-route-returnUrl="@Model.LocalReturnUrl">Criar conta</a>
+    </p>
+}

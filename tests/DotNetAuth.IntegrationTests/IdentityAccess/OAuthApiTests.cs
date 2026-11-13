@@ -4,18 +4,22 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
 using DotNetAuth.Application.IdentityAccess;
+using DotNetAuth.Infrastructure.IdentityAccess.Email;
 using DotNetAuth.Infrastructure.IdentityAccess.OAuth;
 using DotNetAuth.Infrastructure.IdentityAccess.Persistence;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.WebUtilities;
 using Xunit;
 
@@ -78,15 +82,86 @@ public sealed class OAuthApiTests : IClassFixture<AuthApiFactory>
     }
 
     [Fact]
-    public async Task Web_login_page_is_not_available_when_web_authentication_is_disabled()
+    public async Task Web_login_page_is_available_when_web_registration_is_disabled()
     {
         var response = await _client.GetAsync("/account/login");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Entre na sua conta", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("Criar conta", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Web_registration_page_is_not_available_when_web_registration_is_disabled()
+    {
+        var response = await _client.GetAsync("/account/register");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
-    public async Task Api_registration_accepts_eight_character_password_without_digit_or_symbol()
+    public void Cache_instance_name_uses_the_configured_prefix()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var options = scope.ServiceProvider
+            .GetRequiredService<IOptions<RedisCacheOptions>>()
+            .Value;
+
+        Assert.Equal("dotnetauth:", options.InstanceName);
+    }
+
+    [Fact]
+    public void Identity_and_smtp_options_are_loaded_from_configuration()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var identityOptions = scope.ServiceProvider
+            .GetRequiredService<IOptions<IdentityOptions>>()
+            .Value;
+        var smtpOptions = scope.ServiceProvider
+            .GetRequiredService<IOptions<SmtpOptions>>()
+            .Value;
+
+        Assert.Equal(8, identityOptions.Password.RequiredLength);
+        Assert.True(identityOptions.Password.RequireDigit);
+        Assert.Equal(5, identityOptions.Lockout.MaxFailedAccessAttempts);
+        Assert.Equal(TimeSpan.FromMinutes(15), identityOptions.Lockout.DefaultLockoutTimeSpan);
+        Assert.Equal("localhost", smtpOptions.Host);
+        Assert.Equal(1025, smtpOptions.Port);
+        Assert.False(smtpOptions.EnableSsl);
+        Assert.Null(smtpOptions.Username);
+        Assert.Null(smtpOptions.Password);
+        Assert.Equal("no-reply@dotnetauth.local", smtpOptions.FromAddress);
+    }
+
+    [Fact]
+    public async Task OAuth_authorization_redirects_to_web_login_when_web_registration_is_disabled()
+    {
+        var authorizationUri = QueryHelpers.AddQueryString(
+            "/connect/authorize",
+            new Dictionary<string, string?>
+            {
+                ["client_id"] = "dotnetauth-local",
+                ["response_type"] = "code",
+                ["redirect_uri"] = "http://localhost:5004/oauth/callback",
+                ["scope"] = "openid profile email api",
+                ["code_challenge"] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~",
+                ["code_challenge_method"] = "S256"
+            });
+
+        var response = await _client.GetAsync(authorizationUri);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        var location = Assert.IsType<Uri>(response.Headers.Location);
+        var absoluteLocation = location.IsAbsoluteUri
+            ? location
+            : new Uri($"http://localhost{location.OriginalString}");
+        Assert.Equal("/account/login", absoluteLocation.AbsolutePath);
+        Assert.Contains("returnUrl=", absoluteLocation.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Api_registration_rejects_eight_character_password_without_digit()
     {
         var response = await _client.PostAsJsonAsync("/api/auth/register", new
         {
@@ -96,7 +171,8 @@ public sealed class OAuthApiTests : IClassFixture<AuthApiFactory>
         });
 
         var body = await response.Content.ReadAsStringAsync();
-        Assert.True(response.StatusCode == HttpStatusCode.Created, body);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("digit", body, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -206,6 +282,27 @@ public sealed class OAuthApiTests : IClassFixture<AuthApiFactory>
     }
 }
 
+public sealed class CacheConfigurationTests : IClassFixture<CacheFallbackFactory>
+{
+    private readonly CacheFallbackFactory _factory;
+
+    public CacheConfigurationTests(CacheFallbackFactory factory)
+    {
+        _factory = factory;
+    }
+
+    [Fact]
+    public void Missing_cache_instance_name_uses_the_default_prefix()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var options = scope.ServiceProvider
+            .GetRequiredService<IOptions<RedisCacheOptions>>()
+            .Value;
+
+        Assert.Equal("dotnetauth:", options.InstanceName);
+    }
+}
+
 public class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly SqliteConnection _connection = new("Data Source=:memory:");
@@ -215,6 +312,7 @@ public class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         ?? throw new InvalidOperationException("No confirmation email was sent.");
 
     protected virtual bool WebAuthenticationRegistrationEnabled => false;
+    protected virtual string? CacheInstanceName => "dotnetauth";
 
     public async Task InitializeAsync()
     {
@@ -237,7 +335,8 @@ public class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 ["Database:ApplyMigrations"] = "false",
                 ["ConnectionStrings:Default"] = "Server=unused;Database=unused;",
                 ["OAuth:Issuer"] = "http://localhost:5004/",
-                ["Web:Authentication:Registration"] = WebAuthenticationRegistrationEnabled.ToString()
+                ["Web:Authentication:Registration"] = WebAuthenticationRegistrationEnabled.ToString(),
+                ["Cache:InstanceName"] = CacheInstanceName
             });
         });
         builder.ConfigureTestServices(services =>
@@ -256,6 +355,11 @@ public class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         await _connection.DisposeAsync();
     }
+}
+
+public sealed class CacheFallbackFactory : AuthApiFactory
+{
+    protected override string? CacheInstanceName => null;
 }
 
 public sealed class TestEmailSender : IConfirmationEmailSender

@@ -2,10 +2,13 @@ using System.ComponentModel.DataAnnotations;
 using DotNetAuth.Application.IdentityAccess;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Configuration;
 
 namespace DotNetAuth.Pages.IdentityAccess.Account;
 
-public sealed class RegisterModel(RegisterUserService registerUser) : PageModel
+public sealed class RegisterModel(
+    RegisterUserService registerUser,
+    IConfiguration configuration) : PageModel
 {
     [BindProperty]
     public RegisterInput Input { get; set; } = new();
@@ -18,13 +21,24 @@ public sealed class RegisterModel(RegisterUserService registerUser) : PageModel
     public string? LocalReturnUrl =>
         Url.IsLocalUrl(ReturnUrl) ? ReturnUrl : null;
 
-    public void OnGet()
+    public IActionResult OnGet()
     {
+        if (!IsRegistrationEnabled)
+        {
+            return NotFound();
+        }
+
         NormalizeReturnUrl();
+        return Page();
     }
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
+        if (!IsRegistrationEnabled)
+        {
+            return NotFound();
+        }
+
         NormalizeReturnUrl();
 
         if (!ModelState.IsValid)
@@ -59,6 +73,9 @@ public sealed class RegisterModel(RegisterUserService registerUser) : PageModel
         SuccessMessage = "Cadastro criado. Confirme o e-mail antes de fazer login.";
         return Page();
     }
+
+    private bool IsRegistrationEnabled =>
+        configuration.GetValue<bool>("Web:Authentication:Registration");
 
     private void AddRegistrationError(ValidationError error)
     {

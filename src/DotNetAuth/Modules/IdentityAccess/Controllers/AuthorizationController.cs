@@ -27,17 +27,12 @@ public sealed class AuthorizationController(
             IdentityConstants.ApplicationScheme);
         if (!authentication.Succeeded || authentication.Principal is null)
         {
-            if (configuration.GetValue<bool>("Web:Authentication:Registration"))
-            {
-                var returnUrl = $"{Request.PathBase}{Request.Path}{Request.QueryString}";
-                var loginUrl = QueryHelpers.AddQueryString(
-                    "/account/login",
-                    "returnUrl",
-                    returnUrl);
-                return Redirect(loginUrl);
-            }
-
-            return Unauthorized(new { Error = "login_required" });
+            var returnUrl = $"{Request.PathBase}{Request.Path}{Request.QueryString}";
+            var loginUrl = QueryHelpers.AddQueryString(
+                "/account/login",
+                "returnUrl",
+                returnUrl);
+            return Redirect(loginUrl);
         }
 
         var user = await authorizeUser.ExecuteAsync(
@@ -58,7 +53,7 @@ public sealed class AuthorizationController(
 
         var principal = new ClaimsPrincipal(identity);
         principal.SetScopes(request.GetScopes());
-        principal.SetResources("api");
+        principal.SetResources(configuration["OAuth:Audience"] ?? "api");
 
         foreach (var claim in principal.Claims)
         {

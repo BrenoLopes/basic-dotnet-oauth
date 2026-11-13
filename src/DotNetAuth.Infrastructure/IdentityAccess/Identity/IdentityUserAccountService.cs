@@ -10,18 +10,21 @@ public sealed class IdentityUserAccountService(
     public async Task<UserCreationResult> CreateAsync(
         User user,
         string password,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         var identityUser = ApplicationUser.FromDomain(user);
         var result = await userManager.CreateAsync(identityUser, password);
+
         if (!result.Succeeded)
         {
             return UserCreationResult.Failure(
                 result.Errors
                     .Select(error => new ValidationError(error.Code, error.Description))
-                    .ToArray());
+                    .ToArray()
+                );
         }
 
         return UserCreationResult.Success(identityUser.ToDomain());

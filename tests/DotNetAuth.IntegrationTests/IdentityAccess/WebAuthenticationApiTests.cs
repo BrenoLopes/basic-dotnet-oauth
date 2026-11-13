@@ -63,7 +63,7 @@ public sealed class WebAuthenticationApiTests : IClassFixture<WebAuthenticationA
             Form(new Dictionary<string, string>
             {
                 ["Input.Email"] = "success-action@example.com",
-                ["Input.Password"] = "Abcdefgh",
+                ["Input.Password"] = "Abcdefg1",
                 ["Input.DisplayName"] = "Success Action User",
                 ["ReturnUrl"] = "/local-target",
                 ["__RequestVerificationToken"] = registerToken
@@ -94,7 +94,7 @@ public sealed class WebAuthenticationApiTests : IClassFixture<WebAuthenticationA
     public async Task Web_registration_and_login_create_application_cookie()
     {
         const string email = "web-user@example.com";
-        const string password = "Abcdefgh";
+        const string password = "Abcdefg1";
 
         var registerPage = await _client.GetAsync("/account/register");
         var registerToken = ExtractAntiforgeryToken(await registerPage.Content.ReadAsStringAsync());

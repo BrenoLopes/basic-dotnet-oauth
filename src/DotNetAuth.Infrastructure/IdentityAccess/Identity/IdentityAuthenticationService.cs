@@ -2,12 +2,14 @@ using System.Security.Claims;
 using DotNetAuth.Application.IdentityAccess;
 using DotNetAuth.Domain.IdentityAccess.Users;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Configuration;
 
 namespace DotNetAuth.Infrastructure.IdentityAccess.Identity;
 
 public sealed class IdentityAuthenticationService(
     UserManager<ApplicationUser> userManager,
-    SignInManager<ApplicationUser> signInManager) : IUserAuthenticationService
+    SignInManager<ApplicationUser> signInManager,
+    IConfiguration configuration) : IUserAuthenticationService
 {
     public async Task<AuthenticationResult> LoginAsync(
         EmailAddress email,
@@ -21,7 +23,8 @@ public sealed class IdentityAuthenticationService(
             email.Value,
             password,
             isPersistent: rememberMe,
-            lockoutOnFailure: true);
+            lockoutOnFailure: configuration.GetValue("Identity:SignIn:LockoutOnFailure", true)
+        );
 
         if (result.Succeeded)
         {

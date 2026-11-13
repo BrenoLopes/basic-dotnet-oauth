@@ -151,7 +151,22 @@ O Docker Compose carrega automaticamente o arquivo `.env` localizado na raiz do 
 
 O alvo `make dev` executa `docker compose up -d` e inicia a API com `dotnet run`. Para executar cada parte separadamente, use `make infra-up` e `make api`.
 
+O prefixo das chaves do cache Valkey/Redis é configurado em `Cache:InstanceName` nos arquivos `appsettings.json` e `appsettings.Development.json`. Com o valor `dotnetauth`, as chaves são armazenadas com o prefixo `dotnetauth:`.
+
 O perfil `Development` usa as conexões locais e está configurado com `Database:ApplyMigrations=true`; por isso, a API aplica as migrations pendentes ao iniciar. Se a senha `MARIADB_PASSWORD` do `.env` for alterada, atualize também `ConnectionStrings__Default` antes de executar a API.
+
+Para usar um SMTP externo, configure as opções da seção `Smtp` por configuração ou variáveis de ambiente. As credenciais não devem ser gravadas no repositório:
+
+```text
+Smtp__Host=smtp.example.com
+Smtp__Port=587
+Smtp__EnableSsl=true
+Smtp__Username=usuario-smtp
+Smtp__Password=senha-smtp
+Smtp__FromAddress=no-reply@example.com
+```
+
+As demais políticas operacionais também ficam no `appsettings`: `Database` controla migrations, versão do MariaDB, retries e inicialização; `Identity` controla senha, confirmação de e-mail e lockout; `Cache:ProfileExpirationMinutes` controla o TTL do perfil; e `OAuth` controla issuer, audience, scopes, PKCE, refresh token e o cliente de teste.
 
 O CloudBeaver acessa o MariaDB pela rede interna do Compose usando:
 
@@ -318,14 +333,14 @@ Também é possível configurar pela variável de ambiente:
 Web__Authentication__Registration=true
 ```
 
-Quando habilitadas, as páginas ficam disponíveis em:
+O login web fica sempre disponível. A flag controla apenas a página de registro:
 
-- `GET /account/register`: formulário de registro.
 - `GET /account/login`: formulário de login.
+- `GET /account/register`: formulário de registro, quando `Registration` está habilitado.
 
 Os endpoints JSON `/api/auth/register` e `/api/auth/login` continuam disponíveis independentemente da flag. O cookie web não autoriza `/api/profile`, que continua exigindo um access token Bearer.
 
-Ao iniciar `/connect/authorize` sem sessão web, a aplicação redireciona para `/account/login` com um `returnUrl` local. Depois do login, o fluxo OAuth retorna ao endpoint de autorização e preserva Authorization Code + PKCE.
+Ao iniciar `/connect/authorize` sem sessão web, a aplicação sempre redireciona para `/account/login` com um `returnUrl` local. Depois do login, o fluxo OAuth retorna ao endpoint de autorização e preserva Authorization Code + PKCE.
 
 ## Fluxo de autenticação
 

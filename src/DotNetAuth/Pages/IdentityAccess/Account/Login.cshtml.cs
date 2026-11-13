@@ -2,10 +2,13 @@ using System.ComponentModel.DataAnnotations;
 using DotNetAuth.Application.IdentityAccess;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Configuration;
 
 namespace DotNetAuth.Pages.IdentityAccess.Account;
 
-public sealed class LoginModel(LoginUserService loginUser) : PageModel
+public sealed class LoginModel(
+    LoginUserService loginUser,
+    IConfiguration configuration) : PageModel
 {
     [BindProperty]
     public LoginInput Input { get; set; } = new();
@@ -20,6 +23,9 @@ public sealed class LoginModel(LoginUserService loginUser) : PageModel
         LocalReturnUrl?.StartsWith(
             "/connect/authorize",
             StringComparison.OrdinalIgnoreCase) == true;
+
+    public bool IsRegistrationEnabled =>
+        configuration.GetValue<bool>("Web:Authentication:Registration");
 
     public void OnGet()
     {
